@@ -1,4 +1,4 @@
-import cPickle, gzip, numpy as np, matplotlib.pyplot as plt, matplotlib.cm as cm
+import cPickle, gzip, numpy as np, matplotlib.pyplot as plt, matplotlib.cm as cm, time
 
 # Load the dataset
 f = gzip.open('mnist.pkl.gz', 'rb')
@@ -7,8 +7,8 @@ f.close()
 train_set_x, train_set_y = train_set
 valid_set_x, valid_set_y = valid_set
 
-train_set_x = np.reshape(train_set_x,(50000,1,784))
-valid_set_x = np.reshape(valid_set_x,(10000,1,784))
+#train_set_x = np.reshape(train_set_x,(50000,1,784))
+#valid_set_x = np.reshape(valid_set_x,(10000,1,784))
 
 # image = np.reshape(train_set_x[0], (28, 28))
 # print np.shape(image)
@@ -16,42 +16,43 @@ valid_set_x = np.reshape(valid_set_x,(10000,1,784))
 # plt.imshow(image, cmap = cm.Greys_r)
 # plt.show()
 
-
-def one_hot(t):
-    res = np.array([(t == 0), (t ==1), (t == 2), (t == 3), (t == 4), (t == 5), (t == 6), (t ==7), (t == 8), (t == 9)])
-    res = np.reshape(res,(1,10))
-    return res
-
+batch = 10
 #the RdN
 class layer(object):
     def __init__(self): # Notre methode constructeur        
-        self.w = np.zeros((28*28,10))
+        self.w = np.zeros((784,10))
         self.b = np.zeros((1,10))
     def fprop(self, x):
     	z = np.dot(x, self.w) + self.b
     	return z
     def update(self, lr, x, t):
-    	dEdb = 2*(self.fprop(x)-one_hot(t))
-    	dEdw = np.dot(x.T, dEdb)    	
+    	dEdz = 2*(self.fprop(x) - np.eye(10)[t])
+    	dEdw = np.dot(x.T, dEdz)
+    	dEdb = np.mean(dEdz, axis = 0)    	
     	self.w = self.w - dEdw * lr
     	self.b = self.b - dEdb * lr
     	return
     def error(self, x, t):
-        if t == np.argmax(self.fprop(x)):
-            return 0
-        else:
-            return 1
+        z = np.argmax(self.fprop(x), axis = 1)
+        errors = np.sum(z!=t)
+        return errors
 
+# layer 1
 L = layer()
-
-for i in range(15):
-    for j in range(50000):
-    	L.update(.0001, train_set_x[j], train_set_y[j])
+# mesuring time
+start = time.time()
+for i in range(5):
+    # training
+    for j in range(50000/batch):
+    	L.update(.0001, train_set_x[j*batch:(j+1)*batch], train_set_y[j*batch:(j+1)*batch])
+    # mesuring error rate
     error_count = 0
-    for j in range(10000):
-        error_count = error_count + L.error(valid_set_x[j], valid_set_y[j])
+    for j in range(10000/batch):
+        error_count += L.error(valid_set_x[j*batch:(j+1)*batch], valid_set_y[j*batch:(j+1)*batch])
     error_rate = error_count / 10000.
-    print "validation error rate : " + str(error_rate) + " epoch " + str(i)
+    # report
+    print "validation error rate : " + str(error_rate) + " epoch " + str(i) 
+print " execution time : " + str(time.time() - start)
     
     
 
